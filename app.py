@@ -7,6 +7,11 @@ from pawpal_system import FREQUENCIES, PRIORITIES, Owner, Pet, Scheduler, Task, 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
 
+def md(text: str) -> str:
+    """Escape user-typed text so Markdown/LaTeX characters (e.g. "$5", "*") display literally."""
+    return "".join("\\" + ch if ch in "\\`*_{}[]()#+-.!|~$<>" else ch for ch in text)
+
+
 def get_owner() -> Owner:
     """Return the Owner kept in session state, creating one on first run."""
     if "owner" not in st.session_state:
@@ -32,7 +37,7 @@ with st.sidebar:
 
     st.header("Pets")
     for pet in owner.pets:
-        st.markdown(f"- **{pet.name}** — {pet.species}, {pet.age} yr · {len(pet.tasks)} tasks")
+        st.markdown(f"- **{md(pet.name)}** — {pet.species}, {pet.age} yr · {len(pet.tasks)} task{'' if len(pet.tasks) == 1 else 's'}")
     with st.form("add_pet", clear_on_submit=True):
         pet_name = st.text_input("Pet name")
         species = st.selectbox("Species", ["dog", "cat", "rabbit", "bird", "other"])
@@ -95,7 +100,7 @@ with schedule_tab:
     tasks = scheduler.sort_by_time(tasks)
 
     for warning in scheduler.detect_conflicts(day):
-        st.warning(warning)
+        st.warning(md(warning))
 
     if not tasks:
         st.info("No tasks match for this day.")
@@ -107,12 +112,12 @@ with schedule_tab:
             elif st.button("✔", key=f"done-{task.id}", help="Mark done"):
                 upcoming = scheduler.mark_task_complete(task.id)
                 if upcoming:
-                    st.toast(f"Done! Next '{upcoming.description}' added for {upcoming.due_date:%a %b %d}.")
+                    st.toast(f"Done! Next '{md(upcoming.description)}' added for {upcoming.due_date:%a %b %d}.")
                 st.rerun()
         with c_info:
             text = (
-                f"**{task.time}–{to_hhmm(task.end_minutes)}** · {task.description} · "
-                f"*{task.pet_name}* · {task.priority} priority"
+                f"**{task.time}–{to_hhmm(task.end_minutes)}** · {md(task.description)} · "
+                f"*{md(task.pet_name)}* · {task.priority} priority"
                 + (f" · repeats {task.frequency}" if task.frequency != "once" else "")
             )
             st.markdown(f"~~{text}~~" if task.completed else text)
@@ -145,6 +150,6 @@ with plan_tab:
     else:
         st.success("Nothing left to do on this day. 🎉")
     for entry in plan.skipped:
-        st.info(f"Skipped **{entry.task.description}** ({entry.task.pet_name}): {entry.reason}")
+        st.info(f"Skipped **{md(entry.task.description)}** ({md(entry.task.pet_name)}): {entry.reason}")
     for warning in plan.conflicts:
-        st.warning(warning)
+        st.warning(md(warning))

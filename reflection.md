@@ -65,10 +65,11 @@ The most helpful requests were specific about *behavior* rather than code: "comp
 Changes made after looking at actual output instead of trusting the first version:
 
 - The first "Still to do" list in the demo printed tasks in whatever order they were stored, which was hard to read. It now runs through `sort_by_time()` before printing.
+- A final review found that completing an *overdue* daily task created the next one in the past (due date + 1 day), so the routine silently fell off today's view. The fix counts from today when the task is overdue, matching the "today + 1 day" rule in the assignment. A test was added that failed on the old code.
 - The first version of the project also included the optional challenges (a next-free-slot finder, JSON saving, and emoji/table formatting). I removed them to keep the submission focused on the required features.
 - Recurrence: completing an already-complete task is a no-op. Otherwise a double-click on "done" in Streamlit would create two copies of tomorrow's task. There is a test for this.
 
-How it was verified: 29 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created).
+How it was verified: 32 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created).
 
 <!-- TODO: Add a moment where *you* disagreed with or changed something the AI produced, and why. -->
 
@@ -80,22 +81,22 @@ How it was verified: 29 pytest tests, the `main.py` output checked by hand again
 
 **a. What you tested**
 
-29 pytest tests in `tests/test_pawpal.py`, grouped by behavior:
+32 pytest tests in `tests/test_pawpal.py`, grouped by behavior:
 
 - **Sorting** — out-of-order tasks come back chronologically, `"9:00"` sorts before `"10:00"`, and priority sorting breaks ties by time.
 - **Filtering** — by pet, by completion status, both together, and by day.
-- **Recurrence** — daily → tomorrow (including Oct 31 → Nov 1), weekly → +7 days, one-time tasks don't recur, and completing a task twice doesn't create a duplicate.
+- **Recurrence** — daily → tomorrow (including Oct 31 → Nov 1), overdue tasks restart from tomorrow, weekly → +7 days, one-time tasks don't recur, and completing a task twice doesn't create a duplicate.
 - **Conflicts** — same start time, overlapping durations, back-to-back tasks (should *not* conflict), completed tasks ignored, and a three-way overlap.
-- **Edge cases** — a pet with no tasks, an empty day, and bad input times.
+- **Edge cases** — a pet with no tasks, an empty day, bad input times, and end times past midnight.
 - **Planning** — the time budget is respected in priority order and finished tasks are left out.
 
 These matter because they are the rules the owner trusts without checking. If sorting is wrong at 9 vs. 10 o'clock, or a daily medication silently fails to reappear tomorrow, the app is worse than a paper list. The boundary cases (back-to-back vs. overlapping, month rollover) are where off-by-one mistakes tend to hide.
 
 **b. Confidence**
 
-4 out of 5. All 29 tests pass, and the CLI demo output matches what I expect by hand. Next I would test:
+4 out of 5. All 32 tests pass, and the CLI demo output matches what I expect by hand. Next I would test:
 
-- Tasks that run past midnight (e.g., 23:45 for 30 minutes). Right now the end time just goes past 24:00 and isn't checked against the next day.
+- Tasks that run past midnight (e.g., 23:45 for 30 minutes). The end time displays correctly (00:15), but conflict checks don't look into the next day, so it wouldn't clash with a 00:00 task tomorrow.
 - Completing a recurring task whose next occurrence lands on a time that already has another task (the new task should show up in that day's conflicts).
 - The Streamlit UI flows (add → complete → filter), which are only checked manually right now.
 

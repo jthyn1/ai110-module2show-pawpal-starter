@@ -15,7 +15,7 @@ classDiagram
         +start_minutes() int
         +end_minutes() int
         +mark_complete() None
-        +next_occurrence() Task
+        +next_occurrence(today) Task
     }
 
     class Pet {
@@ -47,7 +47,7 @@ classDiagram
         +sort_by_priority(tasks) list~Task~
         +todays_schedule(day) list~Task~
         +filter_tasks(tasks, pet_name, completed) list~Task~
-        +mark_task_complete(task_id) Task
+        +mark_task_complete(task_id, today) Task
         +detect_conflicts(day) list~str~
         +generate_plan(day) DailyPlan
     }

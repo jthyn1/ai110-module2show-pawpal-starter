@@ -24,7 +24,8 @@ def to_minutes(hhmm: str) -> int:
 
 
 def to_hhmm(minutes: int) -> str:
-    """Convert minutes after midnight to an "HH:MM" string."""
+    """Convert minutes after midnight to an "HH:MM" string, wrapping past midnight."""
+    minutes %= 24 * 60
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
@@ -69,18 +70,23 @@ class Task:
         """Mark this task as done."""
         self.completed = True
 
-    def next_occurrence(self) -> Task | None:
-        """Return a fresh copy of this task for its next due date, or None if it doesn't repeat."""
+    def next_occurrence(self, today: date | None = None) -> Task | None:
+        """Return a fresh copy of this task for its next due date, or None if it doesn't repeat.
+
+        The next date counts from today, or from the due date if that is later,
+        so finishing an overdue task doesn't create another one in the past.
+        """
         step = RECURRENCE_STEP.get(self.frequency)
         if step is None:
             return None
+        base = max(self.due_date, today or date.today())
         return Task(
             description=self.description,
             time=self.time,
             duration_minutes=self.duration_minutes,
             priority=self.priority,
             frequency=self.frequency,
-            due_date=self.due_date + step,
+            due_date=base + step,
             pet_name=self.pet_name,
         )
 
@@ -218,7 +224,7 @@ class Scheduler:
 
     # --- Recurring tasks ---------------------------------------------------
 
-    def mark_task_complete(self, task_id: str) -> Task | None:
+    def mark_task_complete(self, task_id: str, today: date | None = None) -> Task | None:
         """Mark a task complete; for daily/weekly tasks, add and return the next occurrence.
 
         Returns None when the task doesn't exist, doesn't repeat, or was
@@ -228,7 +234,7 @@ class Scheduler:
         if task is None or task.completed:
             return None
         task.mark_complete()
-        upcoming = task.next_occurrence()
+        upcoming = task.next_occurrence(today)
         if upcoming is not None:
             pet = self.owner.get_pet(task.pet_name)
             pet.add_task(upcoming)

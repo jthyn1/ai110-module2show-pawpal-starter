@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from pawpal_system import Owner, Pet, Scheduler, Task
+from pawpal_system import Owner, Pet, Scheduler, Task, to_hhmm
 
 TODAY = date(2026, 10, 29)
 
@@ -59,6 +59,11 @@ def test_invalid_time_rejected(bad_time):
 
 def test_single_digit_hour_is_zero_padded():
     assert Task("Walk", "7:05").time == "07:05"
+
+
+def test_end_time_wraps_past_midnight():
+    task = Task("Night meds", "23:45", 30)
+    assert to_hhmm(task.end_minutes) == "00:15"
 
 
 # --- Sorting ----------------------------------------------------------------
@@ -132,7 +137,7 @@ def test_tasks_for_day_excludes_other_days(owner):
 
 def test_completing_daily_task_creates_one_for_next_day(owner):
     walk = add(owner, "Mochi", "Walk", "07:30", frequency="daily")
-    upcoming = Scheduler(owner).mark_task_complete(walk.id)
+    upcoming = Scheduler(owner).mark_task_complete(walk.id, today=TODAY)
 
     assert walk.completed is True
     assert upcoming is not None
@@ -145,15 +150,29 @@ def test_completing_daily_task_creates_one_for_next_day(owner):
 
 def test_completing_weekly_task_creates_one_for_next_week(owner):
     meds = add(owner, "Luna", "Flea meds", "09:00", frequency="weekly")
-    upcoming = Scheduler(owner).mark_task_complete(meds.id)
+    upcoming = Scheduler(owner).mark_task_complete(meds.id, today=TODAY)
     assert upcoming.due_date == TODAY + timedelta(weeks=1)
     assert upcoming.pet_name == "Luna"
 
 
 def test_daily_recurrence_crosses_month_end(owner):
     walk = add(owner, "Mochi", "Walk", "07:00", frequency="daily", day=date(2026, 10, 31))
-    upcoming = Scheduler(owner).mark_task_complete(walk.id)
+    upcoming = Scheduler(owner).mark_task_complete(walk.id, today=date(2026, 10, 31))
     assert upcoming.due_date == date(2026, 11, 1)
+
+
+def test_overdue_daily_task_recurs_from_today(owner):
+    # Finishing a walk that was due 5 days ago should schedule tomorrow, not 4 days ago.
+    walk = add(owner, "Mochi", "Walk", "07:00", frequency="daily", day=TODAY - timedelta(days=5))
+    upcoming = Scheduler(owner).mark_task_complete(walk.id, today=TODAY)
+    assert upcoming.due_date == TODAY + timedelta(days=1)
+
+
+def test_completing_future_task_early_recurs_from_its_due_date(owner):
+    # Ticking off tomorrow's walk today should create the one for the day after, not a duplicate.
+    walk = add(owner, "Mochi", "Walk", "07:00", frequency="daily", day=TODAY + timedelta(days=1))
+    upcoming = Scheduler(owner).mark_task_complete(walk.id, today=TODAY)
+    assert upcoming.due_date == TODAY + timedelta(days=2)
 
 
 def test_one_time_task_does_not_recur(owner):
@@ -165,8 +184,8 @@ def test_one_time_task_does_not_recur(owner):
 def test_completing_same_task_twice_does_not_duplicate(owner):
     walk = add(owner, "Mochi", "Walk", "07:30", frequency="daily")
     scheduler = Scheduler(owner)
-    scheduler.mark_task_complete(walk.id)
-    assert scheduler.mark_task_complete(walk.id) is None
+    scheduler.mark_task_complete(walk.id, today=TODAY)
+    assert scheduler.mark_task_complete(walk.id, today=TODAY) is None
     assert len(owner.get_pet("Mochi").tasks) == 2
 
 
