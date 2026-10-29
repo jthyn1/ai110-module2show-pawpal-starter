@@ -54,22 +54,11 @@ Priority comes first because it covers the things that actually matter for a pet
 
 **a. How you used AI**
 
-I used Claude Code (an agent in the terminal) for the whole build. I gave it the full assignment and it worked through each phase in order: the UML draft and class skeletons, the core classes and CLI demo, the algorithms, the test suite, the Streamlit UI, and the docs. After each phase it ran `main.py` and `pytest` and made a commit, so the history shows the project growing in steps.
-
-The most helpful requests were specific about *behavior* rather than code: "completing a daily task should create tomorrow's copy", "conflicts should be a warning, not a crash", "a time budget decides what fits in the day". Asking it to say which method does what (for the Smarter Scheduling table) also made it easy to check the code against the docs.
+I used Claude Code, an AI agent in the terminal, to implement the project. The most useful thing about this workflow is that it significantly reduces implementation complexity and makes the development process much easier and more productive, at the cost of not having eyes on all of the code implemented without backtracking and reading it all. The way I alleviated this was through verification that the program worked as intended while limit testing certain features to determine if they are functional enough for prod.
 
 **b. Judgment and verification**
 
-Changes made after looking at actual output instead of trusting the first version:
-
-- The first "Still to do" list in the demo printed tasks in whatever order they were stored, which was hard to read. It now runs through `sort_by_time()` before printing.
-- A final review found that completing an *overdue* daily task created the next one in the past (due date + 1 day), so the routine silently fell off today's view. The fix counts from today when the task is overdue, matching the "today + 1 day" rule in the assignment. A test was added that failed on the old code.
-- The first version of the project also included the optional challenges (a next-free-slot finder, JSON saving, and emoji/table formatting). I removed them to keep the submission focused on the required features.
-- Recurrence: completing an already-complete task is a no-op. Otherwise a double-click on "done" in Streamlit would create two copies of tomorrow's task. There is a test for this.
-
-How it was verified: 32 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created).
-
-**Algorithm simplification (Phase 4, Step 5).** For `detect_conflicts()`, a shorter version is possible with `itertools.combinations(tasks, 2)` and an overlap check on every pair. It's one line shorter but compares every pair even when tasks are hours apart, and it hides the "sorted, so we can stop early" idea. I kept the sorted loop with `break` because it's still easy to read and the early exit is explained in the docstring.
+I removed the optional challenges because I wanted to limit the complexity of the program as much as possible in order to make the path to prod as seamless as possible. The downside to doing that is that it reduces the amount that I am challenged in terms of development skills; however, I feel I make that up through my own personal projects and work that I do outside of the class, so I don't miss much.
 
 ---
 
@@ -102,15 +91,12 @@ These matter because they are the rules the owner trusts without checking. If so
 
 **a. What went well**
 
-Keeping the Scheduler separate from the data. Because `Scheduler` only reads from `Owner`, the same methods drive the CLI demo, the tests, and the Streamlit app with no duplicate logic. Adding the UI at the end mostly meant calling methods that were already tested.
+I am most satisfied with the workflow itself, as everything went very smoothly. Although I did rely on (and tried to abuse) Claude, in the end the parts that mattered most (judgment and reflection) I elected to do myself, which enabled the project to be more personal and a better learning experience.
 
 **b. What you would improve**
 
-- Save pets and tasks to a file so they survive restarting the app (right now they live only in the Streamlit session).
-- Let the daily plan *move* tasks into free slots when they conflict, instead of only warning.
-- Make the "available time" a window (e.g. 07:00–09:00 and 17:00–20:00) rather than a single number of minutes.
-- Handle tasks that cross midnight.
+Next time I would try to simplify the implementation more to reduce overhead for the user and complexity for debugging. AI tends to overbuild by a significant margin, so taking time to really dig deep and decide what should be implemented and what shouldn't, rather than building first and tearing down later, would be how I would change my approach.
 
 **c. Key takeaway**
 
-Designing the classes and their responsibilities first made the AI's output much easier to check. With a UML diagram and a skeleton in place, each generated method had a clear job, and tests could pin down exactly what "correct" meant. The AI is fast at writing code. Deciding what the code should do, and checking that it does, is still my job.
+I learned how to better prompt AI to accomplish the correct things that the problem requires. The backtracking made me realize that I need to be better about how I go about prompts and to be more specific with what is needed and what is not.
