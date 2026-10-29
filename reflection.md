@@ -33,13 +33,20 @@ After reviewing the skeleton I made these changes before implementing:
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers:
+
+- **Time of day** — every task has a start time and a duration, used for ordering and for spotting overlaps.
+- **Priority** — high / medium / low. When the owner can't do everything, high-priority tasks are kept first.
+- **The owner's time budget** — `Owner.available_minutes` caps how much care fits into one day's plan.
+- **Completion status and due date** — finished tasks and tasks due on other days are left out of today's plan and conflict checks.
+
+Priority comes first because it covers the things that actually matter for a pet's health: medication and feeding can't be skipped, but grooming can wait a day. Time of day comes second, as the tie-breaker and the order the plan is shown in, because that's how an owner actually works through the day.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+- **Greedy plan instead of an optimal one.** `generate_plan()` takes tasks highest-priority first and adds each one if it still fits in the budget. It never tries combinations, so it can leave time unused. For example, if 25 minutes are left and the next task needs 45, it skips that task even if dropping a 20-minute medium task earlier would have let a more useful mix fit. A true "best fit" is a knapsack problem; for a handful of daily pet tasks the greedy result is easy to explain ("high priority first, until time runs out"), which matters more to an owner than squeezing out the last few minutes.
+- **Conflicts treat the owner as able to do only one thing at a time.** `detect_conflicts()` flags *overlapping* durations (not just identical start times), across all pets. That catches real problems like a 30-minute walk at 18:00 clashing with a play session at 18:10. But it also flags things one person can do together (feeding two cats at once). I chose to over-warn: a warning is cheap to ignore, while a missed medication isn't. Conflicts are warnings, not errors, so the owner stays in control.
+- **Simple pairwise check.** Conflict detection sorts by start time and compares each task only with the ones that start before it ends. That is O(n log n) plus the number of overlaps, which is plenty for a day's worth of pet tasks; I kept the nested loop instead of an interval tree because it's much easier to read.
 
 ---
 
