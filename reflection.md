@@ -52,8 +52,6 @@ Priority comes first because it covers the things that actually matter for a pet
 
 ## 3. AI Collaboration
 
-<!-- TODO: These answers are drafted from what happened in the Claude Code session. Rewrite them in your own words and add your own judgment calls. -->
-
 **a. How you used AI**
 
 I used Claude Code (an agent in the terminal) for the whole build. I gave it the full assignment and it worked through each phase in order: the UML draft and class skeletons, the core classes and CLI demo, the algorithms, the test suite, the Streamlit UI, and the docs. After each phase it ran `main.py` and `pytest` and made a commit, so the history shows the project growing in steps.
@@ -70,8 +68,6 @@ Changes made after looking at actual output instead of trusting the first versio
 - Recurrence: completing an already-complete task is a no-op. Otherwise a double-click on "done" in Streamlit would create two copies of tomorrow's task. There is a test for this.
 
 How it was verified: 32 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created).
-
-<!-- TODO: Add a moment where *you* disagreed with or changed something the AI produced, and why. -->
 
 **Algorithm simplification (Phase 4, Step 5).** For `detect_conflicts()`, a shorter version is possible with `itertools.combinations(tasks, 2)` and an overlap check on every pair. It's one line shorter but compares every pair even when tasks are hours apart, and it hides the "sorted, so we can stop early" idea. I kept the sorted loop with `break` because it's still easy to read and the early exit is explained in the docstring.
 
@@ -103,8 +99,6 @@ These matter because they are the rules the owner trusts without checking. If so
 ---
 
 ## 5. Reflection
-
-<!-- TODO: Personal section — edit to reflect your own view. -->
 
 **a. What went well**
 
