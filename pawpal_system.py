@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import date, timedelta
-from pathlib import Path
 
 PRIORITIES = ("low", "medium", "high")
 PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -28,28 +26,6 @@ def to_minutes(hhmm: str) -> int:
 def to_hhmm(minutes: int) -> str:
     """Convert minutes after midnight to an "HH:MM" string."""
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
-
-
-TASK_EMOJI = {
-    "walk": "🦮",
-    "feed": "🍖",
-    "breakfast": "🍖",
-    "dinner": "🍖",
-    "med": "💊",
-    "pill": "💊",
-    "vet": "🩺",
-    "appointment": "🩺",
-    "groom": "🧼",
-    "bath": "🛁",
-    "play": "🎾",
-}
-PRIORITY_BADGE = {"high": "🔴 high", "medium": "🟡 medium", "low": "🟢 low"}
-
-
-def task_emoji(description: str) -> str:
-    """Pick an emoji for a task from keywords in its description."""
-    text = description.lower()
-    return next((icon for word, icon in TASK_EMOJI.items() if word in text), "🐾")
 
 
 @dataclass
@@ -108,19 +84,6 @@ class Task:
             pet_name=self.pet_name,
         )
 
-    def to_dict(self) -> dict:
-        """Return a JSON-safe dict of this task."""
-        data = asdict(self)
-        data["due_date"] = self.due_date.isoformat()
-        return data
-
-    @classmethod
-    def from_dict(cls, data: dict) -> Task:
-        """Build a task from a dict produced by to_dict()."""
-        data = dict(data)
-        data["due_date"] = date.fromisoformat(data["due_date"])
-        return cls(**data)
-
 
 @dataclass
 class Pet:
@@ -146,23 +109,6 @@ class Pet:
         """Return this pet's task with the given id, or None."""
         return next((t for t in self.tasks if t.id == task_id), None)
 
-    def to_dict(self) -> dict:
-        """Return a JSON-safe dict of this pet and its tasks."""
-        return {
-            "name": self.name,
-            "species": self.species,
-            "age": self.age,
-            "tasks": [t.to_dict() for t in self.tasks],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> Pet:
-        """Build a pet (and its tasks) from a dict produced by to_dict()."""
-        pet = cls(data["name"], data["species"], data.get("age", 0))
-        for task_data in data.get("tasks", []):
-            pet.add_task(Task.from_dict(task_data))
-        return pet
-
 
 class Owner:
     """A pet owner who manages one or more pets."""
@@ -186,34 +132,6 @@ class Owner:
     def get_all_tasks(self) -> list[Task]:
         """Return every task across all of this owner's pets."""
         return [task for pet in self.pets for task in pet.tasks]
-
-    def to_dict(self) -> dict:
-        """Return a JSON-safe dict of this owner, their pets, and tasks."""
-        return {
-            "name": self.name,
-            "available_minutes": self.available_minutes,
-            "pets": [p.to_dict() for p in self.pets],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> Owner:
-        """Build an owner from a dict produced by to_dict()."""
-        owner = cls(data["name"], data.get("available_minutes", 120))
-        for pet_data in data.get("pets", []):
-            owner.add_pet(Pet.from_dict(pet_data))
-        return owner
-
-    def save_to_json(self, path: str | Path = "data.json") -> None:
-        """Write this owner, their pets, and all tasks to a JSON file."""
-        Path(path).write_text(json.dumps(self.to_dict(), indent=2))
-
-    @classmethod
-    def load_from_json(cls, path: str | Path = "data.json") -> Owner | None:
-        """Load an owner from a JSON file; return None if the file doesn't exist."""
-        path = Path(path)
-        if not path.exists():
-            return None
-        return cls.from_dict(json.loads(path.read_text()))
 
 
 @dataclass
@@ -343,31 +261,6 @@ class Scheduler:
                     f"'{second.description}' ({second.time}–{to_hhmm(second.end_minutes)}), {who}"
                 )
         return warnings
-
-    # --- Next available slot -----------------------------------------------
-
-    def next_available_slot(
-        self,
-        duration_minutes: int,
-        day: date | None = None,
-        earliest: str = "07:00",
-        latest: str = "22:00",
-    ) -> str | None:
-        """Return the earliest "HH:MM" start where a task of this length fits without overlap.
-
-        Searches the gaps between the day's unfinished tasks inside the
-        earliest–latest window; returns None if nothing fits.
-        """
-        cursor = to_minutes(earliest)
-        end_of_day = to_minutes(latest)
-        busy = [t for t in self.todays_schedule(day) if not t.completed]
-        for task in busy:
-            if task.start_minutes - cursor >= duration_minutes:
-                break
-            cursor = max(cursor, task.end_minutes)
-        if cursor + duration_minutes <= end_of_day:
-            return to_hhmm(cursor)
-        return None
 
     # --- Daily plan --------------------------------------------------------
 

@@ -213,25 +213,6 @@ def test_three_way_overlap_reports_every_pair(owner):
     assert len(Scheduler(owner).detect_conflicts(TODAY)) == 2  # A-B and A-C; B ends before C
 
 
-# --- Next available slot ----------------------------------------------------
-
-def test_next_slot_finds_first_gap(owner):
-    add(owner, "Mochi", "Walk", "07:00", 30)
-    add(owner, "Luna", "Breakfast", "07:40", 20)
-    scheduler = Scheduler(owner)
-    assert scheduler.next_available_slot(10, TODAY) == "07:30"
-    assert scheduler.next_available_slot(15, TODAY) == "08:00"
-
-
-def test_next_slot_on_empty_day_is_earliest(owner):
-    assert Scheduler(owner).next_available_slot(30, TODAY) == "07:00"
-
-
-def test_next_slot_none_when_day_is_full(owner):
-    add(owner, "Mochi", "All day", "07:00", 15 * 60)
-    assert Scheduler(owner).next_available_slot(5, TODAY) is None
-
-
 # --- Daily plan -------------------------------------------------------------
 
 def test_plan_keeps_high_priority_within_budget(owner):
@@ -251,21 +232,3 @@ def test_plan_skips_completed_tasks(owner):
     plan = Scheduler(owner).generate_plan(TODAY)
     assert plan.scheduled == [] and plan.skipped == []
 
-
-# --- Persistence ------------------------------------------------------------
-
-def test_save_and_load_round_trip(owner, tmp_path):
-    walk = add(owner, "Mochi", "Walk", "07:30", 30, "high", "daily")
-    walk.mark_complete()
-    path = tmp_path / "data.json"
-    owner.save_to_json(path)
-
-    loaded = Owner.load_from_json(path)
-    assert loaded.name == "Jordan"
-    assert [p.name for p in loaded.pets] == ["Mochi", "Luna"]
-    restored = loaded.get_pet("Mochi").tasks[0]
-    assert restored == walk
-
-
-def test_load_missing_file_returns_none(tmp_path):
-    assert Owner.load_from_json(tmp_path / "missing.json") is None

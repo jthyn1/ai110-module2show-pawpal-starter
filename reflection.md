@@ -25,7 +25,7 @@ After reviewing the skeleton I made these changes before implementing:
 
 - **Added an `id` to Task.** The draft had `Pet.remove_task(task_id)` but Task had no id, so there was no reliable way to identify one task (two "Feed" tasks at different times look the same by description). The Streamlit UI also needs a stable key for "mark done" buttons.
 - **Moved "mark complete" up to the Scheduler** (`Scheduler.mark_task_complete`) in addition to `Task.mark_complete()`. A Task can flip its own flag, but it can't add the *next* occurrence of a recurring task to its pet's list — that requires knowing the pet, which the Scheduler does.
-- **Kept `pet_name` on Task** rather than a full back-reference to the Pet object. A plain string avoids a circular reference (which would complicate JSON saving later) while still letting a flat list of tasks say which pet each belongs to.
+- **Kept `pet_name` on Task** rather than a full back-reference to the Pet object. A plain string avoids a circular reference (Pet → Task → Pet) while still letting a flat list of tasks say which pet each belongs to.
 
 ---
 
@@ -64,11 +64,11 @@ The most helpful requests were specific about *behavior* rather than code: "comp
 
 Changes made after looking at actual output instead of trusting the first version:
 
-- The first CLI tables were misaligned because some emoji (✂️, 🍽️) include an invisible "variation selector" character that `tabulate` counted wrong. The fix was switching to single-character emoji and installing `wcwidth`, then re-running to confirm the columns lined up.
-- The first "next free slot" demo asked for 40 minutes and returned 07:00, which was technically correct but showed nothing interesting. It was changed to 75 minutes so the answer (09:05) actually skips past the morning's tasks.
+- The first "Still to do" list in the demo printed tasks in whatever order they were stored, which was hard to read. It now runs through `sort_by_time()` before printing.
+- The first version of the project also included the optional challenges (a next-free-slot finder, JSON saving, and emoji/table formatting). I removed them to keep the submission focused on the required features.
 - Recurrence: completing an already-complete task is a no-op. Otherwise a double-click on "done" in Streamlit would create two copies of tomorrow's task. There is a test for this.
 
-How it was verified: 34 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created and saved to `data.json`).
+How it was verified: 29 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created).
 
 <!-- TODO: Add a moment where *you* disagreed with or changed something the AI produced, and why. -->
 
@@ -80,24 +80,24 @@ How it was verified: 34 pytest tests, the `main.py` output checked by hand again
 
 **a. What you tested**
 
-34 pytest tests in `tests/test_pawpal.py`, grouped by behavior:
+29 pytest tests in `tests/test_pawpal.py`, grouped by behavior:
 
 - **Sorting** — out-of-order tasks come back chronologically, `"9:00"` sorts before `"10:00"`, and priority sorting breaks ties by time.
 - **Filtering** — by pet, by completion status, both together, and by day.
 - **Recurrence** — daily → tomorrow (including Oct 31 → Nov 1), weekly → +7 days, one-time tasks don't recur, and completing a task twice doesn't create a duplicate.
 - **Conflicts** — same start time, overlapping durations, back-to-back tasks (should *not* conflict), completed tasks ignored, and a three-way overlap.
-- **Edge cases** — a pet with no tasks, an empty day, a fully booked day, bad input times, and a missing save file.
-- **Planning and persistence** — the time budget is respected in priority order, and a save/load round trip gives back identical tasks.
+- **Edge cases** — a pet with no tasks, an empty day, and bad input times.
+- **Planning** — the time budget is respected in priority order and finished tasks are left out.
 
 These matter because they are the rules the owner trusts without checking. If sorting is wrong at 9 vs. 10 o'clock, or a daily medication silently fails to reappear tomorrow, the app is worse than a paper list. The boundary cases (back-to-back vs. overlapping, month rollover) are where off-by-one mistakes tend to hide.
 
 **b. Confidence**
 
-4 out of 5. All 34 tests pass, and the CLI demo output matches what I expect by hand. Next I would test:
+4 out of 5. All 29 tests pass, and the CLI demo output matches what I expect by hand. Next I would test:
 
 - Tasks that run past midnight (e.g., 23:45 for 30 minutes). Right now the end time just goes past 24:00 and isn't checked against the next day.
 - Completing a recurring task whose next occurrence lands on a time that already has another task (the new task should show up in that day's conflicts).
-- The Streamlit UI flows (add → complete → reload), which are only checked manually right now.
+- The Streamlit UI flows (add → complete → filter), which are only checked manually right now.
 
 ---
 
@@ -111,7 +111,7 @@ Keeping the Scheduler separate from the data. Because `Scheduler` only reads fro
 
 **b. What you would improve**
 
-- Give tasks a real `category` field (walk, feeding, meds…) instead of guessing the emoji from keywords in the description.
+- Save pets and tasks to a file so they survive restarting the app (right now they live only in the Streamlit session).
 - Let the daily plan *move* tasks into free slots when they conflict, instead of only warning.
 - Make the "available time" a window (e.g. 07:00–09:00 and 17:00–20:00) rather than a single number of minutes.
 - Handle tasks that cross midnight.

@@ -2,31 +2,22 @@
 
 from datetime import date, timedelta
 
-from tabulate import tabulate
-
-from pawpal_system import PRIORITY_BADGE, Owner, Pet, Scheduler, Task, task_emoji, to_hhmm
+from pawpal_system import Owner, Pet, Scheduler, Task, to_hhmm
 
 
 def print_tasks(title: str, tasks: list[Task]) -> None:
-    """Print tasks as a table with status, emoji, and priority badges."""
+    """Print tasks as aligned rows with status, time range, pet, and priority."""
     print(f"\n{title}")
+    print("-" * 78)
     if not tasks:
         print("  (no tasks)")
         return
-    rows = [
-        [
-            "✅" if t.completed else "⬜",
-            f"{t.time}–{to_hhmm(t.end_minutes)}",
-            t.pet_name,
-            f"{task_emoji(t.description)} {t.description}",
-            PRIORITY_BADGE[t.priority],
-            t.frequency,
-            t.due_date.isoformat(),
-        ]
-        for t in tasks
-    ]
-    headers = ["", "Time", "Pet", "Task", "Priority", "Repeats", "Due"]
-    print(tabulate(rows, headers=headers, tablefmt="rounded_outline"))
+    for t in tasks:
+        status = "x" if t.completed else " "
+        print(
+            f"  [{status}] {t.time}-{to_hhmm(t.end_minutes)}  {t.pet_name:<6} {t.description:<16} "
+            f"{t.priority:<7} {t.frequency:<7} {t.due_date.isoformat()}"
+        )
 
 
 def build_demo_owner() -> Owner:
@@ -51,37 +42,33 @@ def main() -> None:
     owner = build_demo_owner()
     scheduler = Scheduler(owner)
     today = date.today()
-    print(f"🐾 PawPal+ for {owner.name} — {len(owner.pets)} pets, {owner.available_minutes} min available today")
+    print(f"PawPal+ for {owner.name} - {len(owner.pets)} pets, {owner.available_minutes} min available today")
 
     print_tasks("Tasks in the order they were added (unsorted)", scheduler.tasks_for_day())
-    print_tasks("Today's Schedule — Scheduler.sort_by_time()", scheduler.todays_schedule())
-    print_tasks(
-        "By priority, then time — Scheduler.sort_by_priority()",
-        scheduler.sort_by_priority(scheduler.tasks_for_day()),
-    )
-    print_tasks("Only Luna's tasks — Scheduler.filter_tasks(pet_name='Luna')", scheduler.filter_tasks(pet_name="Luna"))
+    print_tasks("Today's Schedule - Scheduler.sort_by_time()", scheduler.todays_schedule())
+    print_tasks("Only Luna's tasks - Scheduler.filter_tasks(pet_name='Luna')", scheduler.filter_tasks(pet_name="Luna"))
 
-    print("\nConflict check — Scheduler.detect_conflicts()")
+    print("\nConflict check - Scheduler.detect_conflicts()")
     for warning in scheduler.detect_conflicts() or ["No conflicts."]:
         print(f"  {warning}")
 
     morning_walk = next(t for t in scheduler.tasks_for_day() if t.description == "Morning walk")
     upcoming = scheduler.mark_task_complete(morning_walk.id)
-    print(f"\nMarked 'Morning walk' done — Scheduler.mark_task_complete()")
+    print("\nMarked 'Morning walk' done - Scheduler.mark_task_complete()")
     print(f"  Next occurrence created for {upcoming.due_date.isoformat()} at {upcoming.time}")
-    print_tasks("Still to do — Scheduler.filter_tasks(completed=False)", scheduler.sort_by_time(scheduler.filter_tasks(completed=False)))
-
-    slot = scheduler.next_available_slot(75)
-    print(f"\nNext free 75-minute slot today — Scheduler.next_available_slot(): {slot}")
+    print_tasks(
+        "Still to do - Scheduler.filter_tasks(completed=False)",
+        scheduler.sort_by_time(scheduler.filter_tasks(completed=False)),
+    )
 
     plan = scheduler.generate_plan(today)
-    print(f"\nDaily plan — Scheduler.generate_plan() ({plan.minutes_used}/{plan.budget_minutes} min used)")
+    print(f"\nDaily plan - Scheduler.generate_plan() ({plan.minutes_used}/{plan.budget_minutes} min used)")
     for entry in plan.scheduled:
         t = entry.task
-        print(f"  {t.time}  {task_emoji(t.description)} {t.pet_name}: {t.description} ({t.duration_minutes} min) — {entry.reason}")
+        print(f"  {t.time}  {t.pet_name}: {t.description} ({t.duration_minutes} min) - {entry.reason}")
     for entry in plan.skipped:
         t = entry.task
-        print(f"  SKIPPED  {t.pet_name}: {t.description} — {entry.reason}")
+        print(f"  SKIPPED  {t.pet_name}: {t.description} - {entry.reason}")
 
 
 if __name__ == "__main__":
