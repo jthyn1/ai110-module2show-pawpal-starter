@@ -1,60 +1,133 @@
-# PawPal+ (Module 2 Project)
+# 🐾 PawPal+
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+PawPal+ is a pet care planner for busy owners. It keeps track of every pet's walks, meals, medications, and appointments, puts them in order, warns you when two things clash, rolls daily and weekly tasks forward when you finish them, and builds a daily plan that fits the time you actually have — explaining what made the cut and why.
 
-## Scenario
+It's built "CLI-first": all the logic lives in plain Python classes in `pawpal_system.py`, verified by a terminal demo (`main.py`) and a pytest suite, and the Streamlit app (`app.py`) is a thin UI on top.
 
-A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
+## Features
 
-- Track pet care tasks (walks, feeding, meds, enrichment, grooming, etc.)
-- Consider constraints (time available, priority, owner preferences)
-- Produce a daily plan and explain why it chose that plan
+- **Owners, pets, and tasks** — any number of pets per owner; each task has a time, duration, priority, repeat frequency, and due date.
+- **Sorted schedule** — by time of day, or by priority then time.
+- **Filters** — by pet and by done / to-do.
+- **Recurring tasks** — finishing a daily or weekly task creates the next one automatically.
+- **Conflict warnings** — overlapping tasks (same pet or different pets) are flagged, never crash the app.
+- **Next free slot** — suggests the earliest time a new task of a given length fits.
+- **Smart daily plan** — fits the highest-priority tasks into the owner's available minutes and explains each choice.
+- **Saves between runs** — everything is stored in `data.json`.
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
+## Architecture
 
-## What you will build
+```mermaid
+classDiagram
+    Owner "1" o-- "*" Pet : has
+    Pet "1" *-- "*" Task : owns
+    Scheduler --> Owner : reads pets and tasks from
+    Scheduler ..> DailyPlan : creates
+    DailyPlan "1" *-- "*" PlanEntry : contains
+    PlanEntry --> Task : explains
+```
 
-Your final app should:
+| Class | Responsibility |
+|-------|----------------|
+| `Task` (dataclass) | One care activity. Validates its own time/priority/frequency, marks itself complete, and builds its next occurrence. |
+| `Pet` (dataclass) | A pet's details and its list of tasks; tags each added task with the pet's name. |
+| `Owner` | Holds pets and the daily time budget; gathers every task across pets; saves/loads JSON. |
+| `Scheduler` | The "brain": sorting, filtering, recurrence, conflict detection, free-slot search, and the daily plan. Holds no data of its own. |
+| `DailyPlan` / `PlanEntry` | The result of `generate_plan()`: chosen and skipped tasks, each with a reason. |
 
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
+Full diagram with attributes and methods: [`diagrams/uml.mmd`](diagrams/uml.mmd) (final) and [`diagrams/uml_draft.mmd`](diagrams/uml_draft.mmd) (Phase 1 draft).
 
 ## Getting started
-
-### Setup
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+python main.py            # CLI demo
+python -m pytest          # test suite
+streamlit run app.py      # web app
 ```
-
-### Suggested workflow
-
-1. Read the scenario carefully and identify requirements and edge cases.
-2. Draft a UML diagram (classes, attributes, methods, relationships).
-3. Convert UML into Python class stubs (no logic yet).
-4. Implement scheduling logic in small increments.
-5. Add tests to verify key behaviors.
-6. Connect your logic to the Streamlit UI in `app.py`.
-7. Refine UML so it matches what you actually built.
 
 ## 🖥️ Sample Output
 
-Output of `python main.py`:
+Output of `python main.py`. Tasks are added out of order on purpose; the demo then shows sorting, priority sorting (Challenge 3), filtering, a conflict warning for two tasks at 18:00, a recurring task rolling forward, the next free slot (Challenge 1), and the daily plan with its 90-minute budget:
 
 ```
-PawPal+ for Jordan (2 pets)
+🐾 PawPal+ for Jordan — 2 pets, 90 min available today
 
-Today's Schedule
-------------------------------------------------------------
-  [ ] 07:30  Mochi    Morning walk            30 min  high
-  [ ] 08:00  Luna     Breakfast                5 min  high
-  [ ] 09:00  Luna     Flea medication          5 min  high
-  [ ] 18:00  Mochi    Evening walk            30 min  medium
+Tasks in the order they were added (unsorted)
+╭────┬─────────────┬───────┬────────────────────┬────────────┬───────────┬────────────╮
+│    │ Time        │ Pet   │ Task               │ Priority   │ Repeats   │ Due        │
+├────┼─────────────┼───────┼────────────────────┼────────────┼───────────┼────────────┤
+│ ⬜ │ 18:00–18:30 │ Mochi │ 🦮 Evening walk    │ 🟡 medium  │ daily     │ 2026-10-29 │
+│ ⬜ │ 07:30–08:00 │ Mochi │ 🦮 Morning walk    │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 08:15–09:00 │ Mochi │ 🧼 Grooming        │ 🟢 low     │ once      │ 2026-10-29 │
+│ ⬜ │ 09:00–09:05 │ Luna  │ 💊 Flea medication │ 🔴 high    │ weekly    │ 2026-10-29 │
+│ ⬜ │ 08:00–08:10 │ Luna  │ 🍖 Breakfast       │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 18:00–18:20 │ Luna  │ 🎾 Play session    │ 🟡 medium  │ once      │ 2026-10-29 │
+╰────┴─────────────┴───────┴────────────────────┴────────────┴───────────┴────────────╯
+
+Today's Schedule — Scheduler.sort_by_time()
+╭────┬─────────────┬───────┬────────────────────┬────────────┬───────────┬────────────╮
+│    │ Time        │ Pet   │ Task               │ Priority   │ Repeats   │ Due        │
+├────┼─────────────┼───────┼────────────────────┼────────────┼───────────┼────────────┤
+│ ⬜ │ 07:30–08:00 │ Mochi │ 🦮 Morning walk    │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 08:00–08:10 │ Luna  │ 🍖 Breakfast       │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 08:15–09:00 │ Mochi │ 🧼 Grooming        │ 🟢 low     │ once      │ 2026-10-29 │
+│ ⬜ │ 09:00–09:05 │ Luna  │ 💊 Flea medication │ 🔴 high    │ weekly    │ 2026-10-29 │
+│ ⬜ │ 18:00–18:30 │ Mochi │ 🦮 Evening walk    │ 🟡 medium  │ daily     │ 2026-10-29 │
+│ ⬜ │ 18:00–18:20 │ Luna  │ 🎾 Play session    │ 🟡 medium  │ once      │ 2026-10-29 │
+╰────┴─────────────┴───────┴────────────────────┴────────────┴───────────┴────────────╯
+
+By priority, then time — Scheduler.sort_by_priority()
+╭────┬─────────────┬───────┬────────────────────┬────────────┬───────────┬────────────╮
+│    │ Time        │ Pet   │ Task               │ Priority   │ Repeats   │ Due        │
+├────┼─────────────┼───────┼────────────────────┼────────────┼───────────┼────────────┤
+│ ⬜ │ 07:30–08:00 │ Mochi │ 🦮 Morning walk    │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 08:00–08:10 │ Luna  │ 🍖 Breakfast       │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 09:00–09:05 │ Luna  │ 💊 Flea medication │ 🔴 high    │ weekly    │ 2026-10-29 │
+│ ⬜ │ 18:00–18:30 │ Mochi │ 🦮 Evening walk    │ 🟡 medium  │ daily     │ 2026-10-29 │
+│ ⬜ │ 18:00–18:20 │ Luna  │ 🎾 Play session    │ 🟡 medium  │ once      │ 2026-10-29 │
+│ ⬜ │ 08:15–09:00 │ Mochi │ 🧼 Grooming        │ 🟢 low     │ once      │ 2026-10-29 │
+╰────┴─────────────┴───────┴────────────────────┴────────────┴───────────┴────────────╯
+
+Only Luna's tasks — Scheduler.filter_tasks(pet_name='Luna')
+╭────┬─────────────┬───────┬────────────────────┬────────────┬───────────┬────────────╮
+│    │ Time        │ Pet   │ Task               │ Priority   │ Repeats   │ Due        │
+├────┼─────────────┼───────┼────────────────────┼────────────┼───────────┼────────────┤
+│ ⬜ │ 09:00–09:05 │ Luna  │ 💊 Flea medication │ 🔴 high    │ weekly    │ 2026-10-29 │
+│ ⬜ │ 08:00–08:10 │ Luna  │ 🍖 Breakfast       │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 18:00–18:20 │ Luna  │ 🎾 Play session    │ 🟡 medium  │ once      │ 2026-10-29 │
+╰────┴─────────────┴───────┴────────────────────┴────────────┴───────────┴────────────╯
+
+Conflict check — Scheduler.detect_conflicts()
+  ⚠ Conflict at 18:00: 'Evening walk' (18:00–18:30) overlaps 'Play session' (18:00–18:20), Mochi and Luna
+
+Marked 'Morning walk' done — Scheduler.mark_task_complete()
+  Next occurrence created for 2026-10-30 at 07:30
+
+Still to do — Scheduler.filter_tasks(completed=False)
+╭────┬─────────────┬───────┬────────────────────┬────────────┬───────────┬────────────╮
+│    │ Time        │ Pet   │ Task               │ Priority   │ Repeats   │ Due        │
+├────┼─────────────┼───────┼────────────────────┼────────────┼───────────┼────────────┤
+│ ⬜ │ 08:00–08:10 │ Luna  │ 🍖 Breakfast       │ 🔴 high    │ daily     │ 2026-10-29 │
+│ ⬜ │ 08:15–09:00 │ Mochi │ 🧼 Grooming        │ 🟢 low     │ once      │ 2026-10-29 │
+│ ⬜ │ 09:00–09:05 │ Luna  │ 💊 Flea medication │ 🔴 high    │ weekly    │ 2026-10-29 │
+│ ⬜ │ 18:00–18:30 │ Mochi │ 🦮 Evening walk    │ 🟡 medium  │ daily     │ 2026-10-29 │
+│ ⬜ │ 18:00–18:20 │ Luna  │ 🎾 Play session    │ 🟡 medium  │ once      │ 2026-10-29 │
+│ ⬜ │ 07:30–08:00 │ Mochi │ 🦮 Morning walk    │ 🔴 high    │ daily     │ 2026-10-30 │
+│ ⬜ │ 10:00–11:00 │ Mochi │ 🩺 Vet appointment │ 🔴 high    │ once      │ 2026-11-01 │
+╰────┴─────────────┴───────┴────────────────────┴────────────┴───────────┴────────────╯
+
+Next free 75-minute slot today — Scheduler.next_available_slot(): 09:05
+
+Daily plan — Scheduler.generate_plan() (65/90 min used)
+  08:00  🍖 Luna: Breakfast (10 min) — high priority, fits (80 min left after)
+  09:00  💊 Luna: Flea medication (5 min) — high priority, fits (75 min left after)
+  18:00  🦮 Mochi: Evening walk (30 min) — medium priority, fits (45 min left after)
+  18:00  🎾 Luna: Play session (20 min) — medium priority, fits (25 min left after)
+  SKIPPED  Mochi: Grooming — needs 45 min but only 25 min left; higher-priority tasks came first
 ```
 
 ## 🧪 Testing PawPal+
@@ -143,14 +216,34 @@ All scheduling logic lives in the `Scheduler` class in `pawpal_system.py`. The S
 | Next free slot | `Scheduler.next_available_slot(duration)` | Walks the day's tasks in time order and returns the first gap (between 07:00 and 22:00) long enough for the new task (Challenge 1). |
 | Daily plan | `Scheduler.generate_plan()` → `DailyPlan` | Greedy: takes unfinished tasks highest-priority first while they fit in `Owner.available_minutes`, then shows the chosen ones in time order with a reason for each, plus what was skipped and why. |
 
+## 💾 Data Persistence (Challenge 2)
+
+PawPal+ remembers pets and tasks between runs using a JSON file.
+
+- `Owner.save_to_json(path="data.json")` converts the owner → pets → tasks into plain dicts (`to_dict()` on each class) and writes them with `json.dumps`. Dates are stored as ISO strings (`"2026-10-29"`).
+- `Owner.load_from_json(path="data.json")` reads the file and rebuilds the objects with each class's `from_dict()`. It returns `None` if the file doesn't exist yet, so first launch just starts empty.
+- In `app.py`, the owner is loaded once into `st.session_state` and `save()` is called after every change (add pet, add task, mark done, delete, edit owner settings).
+
+I used a custom dictionary conversion instead of a library like marshmallow: only one field (`due_date`) needs special handling, so a library would add a dependency for very little. `data.json` is in `.gitignore` because it's personal data, not source code.
+
+**Files modified:** `pawpal_system.py` (`to_dict`/`from_dict` on `Task`, `Pet`, `Owner`; `save_to_json`/`load_from_json` on `Owner`), `app.py` (load on start, save after changes), `tests/test_pawpal.py` (round-trip and missing-file tests), `.gitignore`.
+
+## 🎨 Output Formatting (Challenge 4)
+
+- **Tables in the CLI** — `main.py`'s `print_tasks()` uses the [`tabulate`](https://pypi.org/project/tabulate/) library with the `rounded_outline` style. `wcwidth` is installed so emoji are measured correctly and columns line up.
+- **Emoji per task type** — `task_emoji()` in `pawpal_system.py` picks an icon from keywords in the description: 🦮 walk, 🍖 feeding, 💊 meds, 🩺 vet, 🧼 grooming, 🛁 bath, 🎾 play, 🐾 anything else. Used in both the CLI and the Streamlit app.
+- **Color-coded priority** — `PRIORITY_BADGE` maps priorities to 🔴 high / 🟡 medium / 🟢 low.
+- **Status** — ⬜ to do / ✅ done in the CLI; in Streamlit, finished tasks are shown with a ✅ and struck through.
+- **Streamlit** — conflicts show as `st.warning` banners, skipped plan items as `st.info`, a toast confirms when a recurring task's next occurrence is created, and a progress bar shows how much of the day's time budget the plan uses.
+
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
-
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+1. Run `streamlit run app.py`. On first launch there's no `data.json`, so the app asks you to add a pet.
+2. In the sidebar, set your name and how many minutes you have for pet care today (e.g. 90), then add two pets — e.g. **Mochi** (dog) and **Luna** (cat). Each appears in the sidebar list with its task count.
+3. Open **➕ Add a task**. Set a duration and the app shows the next free slot that fits it; the time field defaults to that slot. Add a few tasks out of order — e.g. Mochi "Evening walk" 18:00 / 30 min / daily, Luna "Breakfast" 08:00 / 10 min / high / daily, Luna "Play session" 18:00 / 20 min.
+4. The **📅 Schedule** tab lists the day's tasks in time order with emoji and priority colors. Because the walk and the play session both start at 18:00, a yellow conflict warning appears above the list. Switch **Sort by** to *Priority* or filter by pet / status to narrow the list.
+5. Click **✔** next to Breakfast. It's struck through with a ✅, and a toast says the next Breakfast was added for tomorrow — change the **Day** picker to tomorrow to see it.
+6. Open the **🧠 Smart plan** tab. It shows which unfinished tasks fit in your time budget (highest priority first), the reason for each, a progress bar for minutes used, and anything skipped because time ran out.
+7. Stop and restart the app — your pets and tasks are still there, loaded from `data.json`.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

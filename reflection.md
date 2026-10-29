@@ -52,15 +52,27 @@ Priority comes first because it covers the things that actually matter for a pet
 
 ## 3. AI Collaboration
 
+<!-- TODO: These answers are drafted from what happened in the Claude Code session. Rewrite them in your own words and add your own judgment calls. -->
+
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+I used Claude Code (an agent in the terminal) for the whole build. I gave it the full assignment and it worked through each phase in order: the UML draft and class skeletons, the core classes and CLI demo, the algorithms, the test suite, the Streamlit UI, and the docs. After each phase it ran `main.py` and `pytest` and made a commit, so the history shows the project growing in steps.
+
+The most helpful requests were specific about *behavior* rather than code: "completing a daily task should create tomorrow's copy", "conflicts should be a warning, not a crash", "a time budget decides what fits in the day". Asking it to say which method does what (for the Smarter Scheduling table) also made it easy to check the code against the docs.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+Changes made after looking at actual output instead of trusting the first version:
+
+- The first CLI tables were misaligned because some emoji (✂️, 🍽️) include an invisible "variation selector" character that `tabulate` counted wrong. The fix was switching to single-character emoji and installing `wcwidth`, then re-running to confirm the columns lined up.
+- The first "next free slot" demo asked for 40 minutes and returned 07:00, which was technically correct but showed nothing interesting. It was changed to 75 minutes so the answer (09:05) actually skips past the morning's tasks.
+- Recurrence: completing an already-complete task is a no-op. Otherwise a double-click on "done" in Streamlit would create two copies of tomorrow's task. There is a test for this.
+
+How it was verified: 34 pytest tests, the `main.py` output checked by hand against expected times, and the Streamlit app driven with Streamlit's `AppTest` (add pets → add overlapping tasks → see the warning → mark done → confirm the next occurrence was created and saved to `data.json`).
+
+<!-- TODO: Add a moment where *you* disagreed with or changed something the AI produced, and why. -->
+
+**Algorithm simplification (Phase 4, Step 5).** For `detect_conflicts()`, a shorter version is possible with `itertools.combinations(tasks, 2)` and an overlap check on every pair. It's one line shorter but compares every pair even when tasks are hours apart, and it hides the "sorted, so we can stop early" idea. I kept the sorted loop with `break` because it's still easy to read and the early exit is explained in the docstring.
 
 ---
 
@@ -91,14 +103,19 @@ These matter because they are the rules the owner trusts without checking. If so
 
 ## 5. Reflection
 
+<!-- TODO: Personal section — edit to reflect your own view. -->
+
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+Keeping the Scheduler separate from the data. Because `Scheduler` only reads from `Owner`, the same methods drive the CLI demo, the tests, and the Streamlit app with no duplicate logic. Adding the UI at the end mostly meant calling methods that were already tested.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+- Give tasks a real `category` field (walk, feeding, meds…) instead of guessing the emoji from keywords in the description.
+- Let the daily plan *move* tasks into free slots when they conflict, instead of only warning.
+- Make the "available time" a window (e.g. 07:00–09:00 and 17:00–20:00) rather than a single number of minutes.
+- Handle tasks that cross midnight.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+Designing the classes and their responsibilities first made the AI's output much easier to check. With a UML diagram and a skeleton in place, each generated method had a clear job, and tests could pin down exactly what "correct" meant. The AI is fast at writing code. Deciding what the code should do, and checking that it does, is still my job.

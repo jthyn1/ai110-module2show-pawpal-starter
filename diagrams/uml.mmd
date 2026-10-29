@@ -1,15 +1,84 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
+    %% Final design — matches pawpal_system.py. The Phase 1 draft is in uml_draft.mmd.
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Task {
+        <<dataclass>>
+        +str description
+        +str time
+        +int duration_minutes
+        +str priority
+        +str frequency
+        +date due_date
+        +bool completed
+        +str pet_name
+        +str id
+        +start_minutes() int
+        +end_minutes() int
+        +mark_complete() None
+        +next_occurrence() Task
+        +to_dict() dict
+        +from_dict(data)$ Task
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        <<dataclass>>
+        +str name
+        +str species
+        +int age
+        +list~Task~ tasks
+        +add_task(task) None
+        +remove_task(task_id) bool
+        +get_task(task_id) Task
+        +to_dict() dict
+        +from_dict(data)$ Pet
     }
 
-    ClassName --> AnotherClass : relationship
+    class Owner {
+        +str name
+        +int available_minutes
+        +list~Pet~ pets
+        +add_pet(pet) None
+        +get_pet(name) Pet
+        +get_all_tasks() list~Task~
+        +save_to_json(path) None
+        +load_from_json(path)$ Owner
+    }
+
+    class Scheduler {
+        +Owner owner
+        +get_all_tasks() list~Task~
+        +find_task(task_id) Task
+        +tasks_for_day(day) list~Task~
+        +sort_by_time(tasks) list~Task~
+        +sort_by_priority(tasks) list~Task~
+        +todays_schedule(day) list~Task~
+        +filter_tasks(tasks, pet_name, completed) list~Task~
+        +mark_task_complete(task_id) Task
+        +detect_conflicts(day) list~str~
+        +next_available_slot(duration_minutes, day, earliest, latest) str
+        +generate_plan(day) DailyPlan
+    }
+
+    class DailyPlan {
+        <<dataclass>>
+        +date day
+        +int budget_minutes
+        +list~PlanEntry~ scheduled
+        +list~PlanEntry~ skipped
+        +list~str~ conflicts
+        +minutes_used() int
+    }
+
+    class PlanEntry {
+        <<dataclass>>
+        +Task task
+        +str reason
+    }
+
+    Owner "1" o-- "*" Pet : has
+    Pet "1" *-- "*" Task : owns
+    Scheduler --> Owner : reads pets and tasks from
+    Scheduler ..> DailyPlan : creates
+    DailyPlan "1" *-- "*" PlanEntry : contains
+    PlanEntry --> Task : explains
+    Task ..> Task : next_occurrence() creates
