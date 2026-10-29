@@ -194,4 +194,6 @@ All scheduling logic lives in the `Scheduler` class in `pawpal_system.py`. The S
 5. Click **✔** next to Breakfast. It's struck through with a ✅, and a toast says the next Breakfast was added for tomorrow — change the **Day** picker to tomorrow to see it.
 6. Open the **🧠 Smart plan** tab. It shows which unfinished tasks fit in your time budget (highest priority first), the reason for each, a progress bar for minutes used, and anything skipped because time ran out.
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+**Screenshot or video** *(optional)*:
+
+![PawPal+ app showing the add-task form and a two-pet schedule](screenshots/demo.png)
