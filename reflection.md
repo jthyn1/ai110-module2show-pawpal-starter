@@ -68,13 +68,24 @@ Priority comes first because it covers the things that actually matter for a pet
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+34 pytest tests in `tests/test_pawpal.py`, grouped by behavior:
+
+- **Sorting** — out-of-order tasks come back chronologically, `"9:00"` sorts before `"10:00"`, and priority sorting breaks ties by time.
+- **Filtering** — by pet, by completion status, both together, and by day.
+- **Recurrence** — daily → tomorrow (including Oct 31 → Nov 1), weekly → +7 days, one-time tasks don't recur, and completing a task twice doesn't create a duplicate.
+- **Conflicts** — same start time, overlapping durations, back-to-back tasks (should *not* conflict), completed tasks ignored, and a three-way overlap.
+- **Edge cases** — a pet with no tasks, an empty day, a fully booked day, bad input times, and a missing save file.
+- **Planning and persistence** — the time budget is respected in priority order, and a save/load round trip gives back identical tasks.
+
+These matter because they are the rules the owner trusts without checking. If sorting is wrong at 9 vs. 10 o'clock, or a daily medication silently fails to reappear tomorrow, the app is worse than a paper list. The boundary cases (back-to-back vs. overlapping, month rollover) are where off-by-one mistakes tend to hide.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+4 out of 5. All 34 tests pass, and the CLI demo output matches what I expect by hand. Next I would test:
+
+- Tasks that run past midnight (e.g., 23:45 for 30 minutes). Right now the end time just goes past 24:00 and isn't checked against the next day.
+- Completing a recurring task whose next occurrence lands on a time that already has another task (the new task should show up in that day's conflicts).
+- The Streamlit UI flows (add → complete → reload), which are only checked manually right now.
 
 ---
 
